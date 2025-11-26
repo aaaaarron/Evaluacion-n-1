@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Observabilidad - Agente Dental</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #ffffff;
+            padding: 20px;
+            color: #000;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+
+        header {
+            margin-bottom: 30px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 15px;
+        }
+
+        h1 {
+            color: #000;
+            font-size: 28px;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .metrics-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .metric-card {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 3px solid #000;
+        }
+
+        .metric-card h3 {
+            color: #000;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-card .value {
+            color: #000;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .metric-card .unit {
+            color: #999;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+        }
+
+        .chart-box {
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 20px;
+        }
+
+        .chart-box h2 {
+            color: #000;
+            font-size: 16px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        canvas {
+            max-height: 300px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .error-message {
+            background-color: #fff5f5;
+            border: 1px solid #f5c6c6;
+            border-radius: 4px;
+            padding: 15px;
+            color: #c00;
+            margin-bottom: 20px;
+        }
+
+        .success-message {
+            background-color: #f5fff5;
+            border: 1px solid #c6f5c6;
+            border-radius: 4px;
+            padding: 15px;
+            color: #0c0;
+            margin-bottom: 20px;
+        }
+
+        .security-info {
+            background: #f0f0f0;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 30px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .security-info h3 {
+            color: #000;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .security-info ul {
+            margin-left: 20px;
+            color: #333;
+        }
+
+        .security-info li {
+            margin-bottom: 5px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            color: #999;
+            font-size: 12px;
+        }
+
+        .last-updated {
+            color: #999;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Dashboard de Observabilidad</h1>
+            <p class="subtitle">Monitoreo de Agente Dental - EP3_ISY0101</p>
+        </header>
+
+        <div id="messageBox"></div>
+
+        <div class="metrics-summary">
+            <div class="metric-card">
+                <h3>Ejecuciones Totales</h3>
+                <div class="value" id="totalExecutions">0</div>
+            </div>
+            <div class="metric-card">
+                <h3>Tasa de Éxito</h3>
+                <div class="value" id="successRate">0<span class="unit">%</span></div>
+            </div>
+            <div class="metric-card">
+                <h3>Latencia Promedio</h3>
+                <div class="value" id="avgLatency">0<span class="unit">ms</span></div>
+            </div>
+            <div class="metric-card">
+                <h3>Errores Detectados</h3>
+                <div class="value" id="errorCount">0</div>
+            </div>
+            <div class="metric-card">
+                <h3>Consumo Promedio CPU</h3>
+                <div class="value" id="avgCpu">0<span class="unit">%</span></div>
+            </div>
+            <div class="metric-card">
+                <h3>Consumo Promedio Memoria</h3>
+                <div class="value" id="avgMemory">0<span class="unit">MB</span></div>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-box">
+                <h2>Latencia en el Tiempo (últimas 10 ejecuciones)</h2>
+                <canvas id="latencyChart"></canvas>
+            </div>
+
+            <div class="chart-box">
+                <h2>Ratio Éxito vs Falla</h2>
+                <canvas id="precisionChart"></canvas>
+            </div>
+
+            <div class="chart-box">
+                <h2>Frecuencia de Errores por Tipo</h2>
+                <canvas id="errorChart"></canvas>
+            </div>
+        </div>
+
+        <div class="security-info"
+            style="margin-top: 40px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border: 2px solid #a0aec0;">
+            <h3>💻 Recursos del Sistema en Tiempo Real</h3>
+            <div
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
+                <div
+                    style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h4 style="margin: 0 0 10px 0; color: #2d3748; font-size: 14px;">🖥️ CPU</h4>
+                    <div style="font-size: 24px; font-weight: bold; color: #4299e1;" id="resourceCpu">0%</div>
+                    <div style="font-size: 12px; color: #718096; margin-top: 5px;" id="resourceCpuCores">0 núcleos</div>
+                </div>
+                <div
+                    style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h4 style="margin: 0 0 10px 0; color: #2d3748; font-size: 14px;">🧠 Memoria RAM</h4>
+                    <div style="font-size: 24px; font-weight: bold; color: #48bb78;" id="resourceMemory">0%</div>
+                    <div style="font-size: 12px; color: #718096; margin-top: 5px;" id="resourceMemoryDetails">0 MB / 0
+                        MB</div>
+                </div>
+                <div
+                    style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h4 style="margin: 0 0 10px 0; color: #2d3748; font-size: 14px;">💾 Disco</h4>
+                    <div style="font-size: 24px; font-weight: bold; color: #ed8936;" id="resourceDisk">0%</div>
+                    <div style="font-size: 12px; color: #718096; margin-top: 5px;" id="resourceDiskDetails">0 GB / 0 GB
+                    </div>
+                </div>
+                <div
+                    style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h4 style="margin: 0 0 10px 0; color: #2d3748; font-size: 14px;">🌐 Red</h4>
+                    <div style="font-size: 16px; font-weight: bold; color: #9f7aea;" id="resourceNetSent">↑ 0 MB</div>
+                    <div style="font-size: 16px; font-weight: bold; color: #9f7aea; margin-top: 5px;"
+                        id="resourceNetRecv">↓ 0 MB</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="security-info">
+            <h3>🔒 Criterios de Seguridad Implementados</h3>
+            <ul>
+                <li><strong>Privacidad de Datos:</strong> Las preguntas se truncan a 80 caracteres para evitar
+                    información sensible</li>
+                <li><strong>Sin Almacenamiento Sensible:</strong> Los logs se guardan localmente, sin transmisión a
+                    servidores externos</li>
+                <li><strong>Validación de Entrada:</strong> Se validan todas las consultas antes de procesarlas</li>
+                <li><strong>Truncado de Información:</strong> Datos personales son limitados para privacidad</li>
+                <li><strong>Auditoría Completa:</strong> Cada ejecución es registrada con timestamp para rastreo</li>
+                <li><strong>Acceso Restringido:</strong> Archivos locales, no accesibles remotamente</li>
+            </ul>
+        </div>
+
+        <div class="last-updated" id="lastUpdated"></div>
+
+        <footer>
+            <p>Dashboard de Observabilidad - Evaluación Parcial N°3 ISY0101</p>
+            <p>Implementación de Métricas y Trazabilidad en Agentes de IA</p>
+        </footer>
+    </div>
+
+    <script>
+        let latencyChart = null;
+        let precisionChart = null;
+        let errorChart = null;
+
+        const API_URL = 'http://localhost:5000';
+
+        async function loadMetricsFromAPI() {
+            try {
+                const response = await fetch(`${API_URL}/api/metricas`);
+                if (!response.ok) {
+                    throw new Error('No se pudo conectar con la API. Asegúrate de que esté corriendo: python api_flask.py');
+                }
+
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                showError(`Error conectando con la API: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function loadExecutionsFromAPI() {
+            try {
+                const response = await fetch(`${API_URL}/api/ejecuciones`);
+                if (!response.ok) {
+                    throw new Error('No se pudo obtener las ejecuciones');
+                }
+
+                const data = await response.json();
+                return data.ejecuciones || [];
+            } catch (error) {
+                console.error('Error cargando ejecuciones:', error);
+                return [];
+            }
+        }
+
+        async function loadResourcesFromAPI() {
+            try {
+                const response = await fetch(`${API_URL}/api/recursos`);
+                if (!response.ok) {
+                    throw new Error('No se pudo obtener los recursos');
+                }
+
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error cargando recursos:', error);
+                return null;
+            }
+        }
+
+        function calculateMetrics(logs) {
+            if (logs.length === 0) {
+                return null;
+            }
+
+            const totalExecutions = logs.length;
+            const successCount = logs.filter(log => log.estado === 'success').length;
+            const failureCount = totalExecutions - successCount;
+            const successRate = (successCount / totalExecutions * 100).toFixed(2);
+
+            const latencies = logs.map(log => log.latencia_ms);
+            const avgLatency = (latencies.reduce((a, b) => a + b, 0) / latencies.length).toFixed(2);
+
+            const cpuValues = logs.map(log => log.cpu_percent || 0);
+            const avgCpu = (cpuValues.reduce((a, b) => a + b, 0) / cpuValues.length).toFixed(2);
+
+            const memoryValues = logs.map(log => log.memory_mb || 0);
+            const avgMemory = (memoryValues.reduce((a, b) => a + b, 0) / memoryValues.length).toFixed(2);
+
+            const errorTypes = {};
+            logs.forEach(log => {
+                if (log.error_type && log.estado === 'failed') {
+                    errorTypes[log.error_type] = (errorTypes[log.error_type] || 0) + 1;
+                }
+            });
+
+            return {
+                totalExecutions,
+                successCount,
+                failureCount,
+                successRate,
+                avgLatency,
+                avgCpu,
+                avgMemory,
+                latencies,
+                errorTypes,
+                logs
+            };
+        }
+
+        function updateMetricsCards(metrics, recursos) {
+            document.getElementById('totalExecutions').textContent = metrics.total_ejecuciones || 0;
+            document.getElementById('successRate').innerHTML = `${metrics.tasa_exito || 0}<span class="unit">%</span>`;
+            document.getElementById('avgLatency').innerHTML = `${metrics.latencia_promedio || 0}<span class="unit">ms</span>`;
+            document.getElementById('errorCount').textContent = metrics.ejecuciones_fallidas || 0;
+
+            if (recursos) {
+                document.getElementById('avgCpu').innerHTML = `${recursos.cpu.porcentaje.toFixed(1)}<span class="unit">%</span>`;
+                document.getElementById('avgMemory').innerHTML = `${recursos.memoria.usada_mb.toFixed(0)}<span class="unit">MB</span>`;
+
+                updateResourcesDisplay(recursos);
+            }
+
+            const now = new Date().toLocaleString('es-ES');
+            document.getElementById('lastUpdated').textContent = `Última actualización: ${now}`;
+        }
+
+        function updateResourcesDisplay(recursos) {
+            if (!recursos) return;
+
+            // CPU
+            document.getElementById('resourceCpu').textContent = `${recursos.cpu.porcentaje.toFixed(1)}%`;
+            document.getElementById('resourceCpuCores').textContent = `${recursos.cpu.nucleos} núcleos`;
+
+            // Memoria
+            document.getElementById('resourceMemory').textContent = `${recursos.memoria.porcentaje.toFixed(1)}%`;
+            document.getElementById('resourceMemoryDetails').textContent =
+                `${recursos.memoria.usada_mb.toFixed(0)} MB / ${recursos.memoria.total_mb.toFixed(0)} MB`;
+
+            // Disco
+            document.getElementById('resourceDisk').textContent = `${recursos.disco.porcentaje.toFixed(1)}%`;
+            document.getElementById('resourceDiskDetails').textContent =
+                `${recursos.disco.usado_gb.toFixed(1)} GB / ${recursos.disco.total_gb.toFixed(1)} GB`;
+
+            // Red
+            document.getElementById('resourceNetSent').textContent = `↑ ${recursos.red.enviados_mb.toFixed(2)} MB`;
+            document.getElementById('resourceNetRecv').textContent = `↓ ${recursos.red.recibidos_mb.toFixed(2)} MB`;
+        }
+
+        function createLatencyChart(logs) {
+            const ctx = document.getElementById('latencyChart').getContext('2d');
+
+            const lastLogs = logs.slice(-10);
+            const labels = lastLogs.map((log, i) => `#${log.execution_id + 1}`);
+            const data = lastLogs.map(log => log.latencia_ms);
+
+            if (latencyChart) {
+                latencyChart.destroy();
+            }
+
+            latencyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Latencia (ms)',
+                        data: data,
+                        borderColor: '#000',
+                        backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#000',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function (value) {
+                                    return value + 'ms';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createPrecisionChart(metrics) {
+            const ctx = document.getElementById('precisionChart').getContext('2d');
+
+            if (precisionChart) {
+                precisionChart.destroy();
+            }
+
+            precisionChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Exitosas', 'Fallidas'],
+                    datasets: [{
+                        data: [metrics.ejecuciones_exitosas || 0, metrics.ejecuciones_fallidas || 0],
+                        backgroundColor: [
+                            '#000',
+                            '#e0e0e0'
+                        ],
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return label + ': ' + value + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createErrorChart(metrics) {
+            const ctx = document.getElementById('errorChart').getContext('2d');
+
+            const errorTypes = metrics.errores_por_tipo || {};
+            const errorLabels = Object.keys(errorTypes);
+            const errorCounts = Object.values(errorTypes);
+
+            if (errorLabels.length === 0) {
+                const canvas = document.getElementById('errorChart');
+                if (canvas) {
+                    const noErrorsMessage = document.createElement('div');
+                    noErrorsMessage.id = 'errorChart';
+                    noErrorsMessage.style.textAlign = 'center';
+                    noErrorsMessage.style.color = '#999';
+                    noErrorsMessage.style.padding = '40px';
+                    noErrorsMessage.textContent = 'Sin errores registrados en esta sesión';
+                    canvas.parentNode.replaceChild(noErrorsMessage, canvas);
+                }
+                return;
+            }
+
+            if (errorChart) {
+                errorChart.destroy();
+            }
+
+            errorChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: errorLabels.map(label => label.charAt(0).toUpperCase() + label.slice(1)),
+                    datasets: [{
+                        label: 'Conteo de Errores',
+                        data: errorCounts,
+                        backgroundColor: [
+                            '#999',
+                            '#ccc',
+                            '#ddd'
+                        ],
+                        borderColor: '#fff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function showError(message) {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.innerHTML = `<div class="error-message">⚠️ ${message}</div>`;
+        }
+
+        function showSuccess(message) {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.innerHTML = `<div class="success-message">✓ ${message}</div>`;
+        }
+
+        async function initializeDashboard() {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.innerHTML = '<div class="loading">Cargando datos desde la API...</div>';
+
+            // Cargar métricas desde la API
+            const metrics = await loadMetricsFromAPI();
+
+            if (!metrics) {
+                showError('No se pudo conectar con la API. Asegúrate de que esté corriendo: python api_flask.py');
+                return;
+            }
+
+            // Cargar ejecuciones desde la API
+            const executions = await loadExecutionsFromAPI();
+
+            // Cargar recursos del sistema
+            const recursos = await loadResourcesFromAPI();
+
+            // Actualizar tarjetas de métricas
+            updateMetricsCards(metrics, recursos);
+
+            // Crear gráficos
+            if (executions.length > 0) {
+                createLatencyChart(executions);
+            }
+            createPrecisionChart(metrics);
+            createErrorChart(metrics);
+
+            const totalRegistros = metrics.total_ejecuciones || 0;
+            showSuccess(`✓ Dashboard actualizado. Total de ejecuciones: ${totalRegistros}`);
+        }
+
+        document.addEventListener('DOMContentLoaded', initializeDashboard);
+        setInterval(initializeDashboard, 10000);
+    </script>
+</body>
+
+</html>
